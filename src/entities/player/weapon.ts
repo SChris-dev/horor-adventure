@@ -53,13 +53,13 @@ export class WeaponSystem {
     grp.position.set(0.24, -0.26, -0.48);
 
     const steelMat = new THREE.MeshStandardMaterial({
-      color: 0x181818,
-      metalness: 0.85,
-      roughness: 0.3
+      color: 0x3d4249,
+      metalness: 0.8,
+      roughness: 0.4
     });
     const gripMat = new THREE.MeshStandardMaterial({
-      color: 0x241712,
-      roughness: 0.7
+      color: 0x5a3a2a,
+      roughness: 0.65
     });
 
     // Slide
@@ -85,9 +85,9 @@ export class WeaponSystem {
     grp.position.set(0.22, -0.3, -0.52);
 
     const metalMat = new THREE.MeshStandardMaterial({
-      color: 0x222224,
-      metalness: 0.9,
-      roughness: 0.25
+      color: 0x4a4f56,
+      metalness: 0.85,
+      roughness: 0.35
     });
     const woodMat = new THREE.MeshStandardMaterial({
       map: textures.woodPlanks,

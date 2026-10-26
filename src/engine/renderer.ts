@@ -61,17 +61,17 @@ const HorrorPostShader = {
       float b = texture2D(tDiffuse, uv - dir * ab).b;
       vec3 color = vec3(r, g, b);
 
-      // Horror Color Grading: Cold teal-green desaturated horror look
+      // Horror Color Grading: Cinematic cold midnight grade (preserving visibility)
       float luma = dot(color, vec3(0.299, 0.587, 0.114));
-      vec3 coldTint = vec3(luma * 0.82, luma * 0.94, luma * 0.96);
-      color = mix(color, coldTint, 0.42);
+      vec3 coldTint = vec3(luma * 0.92, luma * 0.98, luma * 1.05);
+      color = mix(color, coldTint, 0.22);
 
-      // Dynamic Film Grain
-      float grain = (random(uv + vec2(uTime * 17.0, uTime * 31.0)) - 0.5) * uGrainIntensity;
+      // Dynamic Film Grain (subtle)
+      float grain = (random(uv + vec2(uTime * 17.0, uTime * 31.0)) - 0.5) * (uGrainIntensity * 0.7);
       color += grain;
 
-      // Heavy Oppressive Vignette
-      float vignette = smoothstep(0.9, 0.2, dist * uVignetteDarkness);
+      // Subtle Atmospheric Vignette (no black screen blockage)
+      float vignette = smoothstep(1.4, 0.35, dist);
       color *= vignette;
 
       // Blood Splatter / Red Pulsing Edge when damaged
@@ -115,7 +115,7 @@ export class GameRenderer {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, preset.maxPixelRatio));
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.05;
+    this.renderer.toneMappingExposure = 1.35;
     this.renderer.shadowMap.enabled = preset.flashlightShadows;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 

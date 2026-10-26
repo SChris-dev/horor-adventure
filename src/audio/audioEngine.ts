@@ -1,6 +1,7 @@
 // ============================================================================
-// 3D Spatial Audio Engine with Dynamic Ambience and Procedural Horror SFX
-// Uses Web Audio API with HRTF spatialization and dynamic tension ducking
+// 3D Spatial Audio Engine: Cinematic Horror Ambience and Balanced SFX
+// Pure atmospheric audio: gentle howling wind, deep sub-bass drone, HRTF spatial sounds
+// Zero piercing frequencies.
 // ============================================================================
 
 import * as THREE from 'three';
@@ -10,17 +11,13 @@ import { useGameStore } from '../state/store';
 class AudioEngine {
   private ctx: AudioContext | null = null;
   private masterGain: GainNode | null = null;
-  private ambientGain: GainNode | null = null;
-  private cricketsGain: GainNode | null = null;
-  private heartbeatGain: GainNode | null = null;
-  private breathingGain: GainNode | null = null;
+  private windGain: GainNode | null = null;
+  private droneGain: GainNode | null = null;
   private staticGain: GainNode | null = null;
 
   private isInitialized = false;
-
-  // Stalker tension tracking: crickets go silent when monster approaches
-  private targetCricketsVol = 0.25;
-  private currentCricketsVol = 0.25;
+  private targetAmbientVol = 0.22;
+  private currentAmbientVol = 0.22;
 
   private nextHeartbeatTime = 0;
 
@@ -34,21 +31,18 @@ class AudioEngine {
       this.masterGain.gain.value = useGameStore.getState().masterVolume;
       this.masterGain.connect(this.ctx.destination);
 
-      // 1. Ambient Drone & Howling Wind
-      this.initAmbientBed();
+      // 1. Soft atmospheric wind in dead trees
+      this.initWindBed();
 
-      // 2. Night Crickets (Silence when stalked)
-      this.initCrickets();
+      // 2. Subtle deep sub-drone (low horror presence)
+      this.initSubDrone();
 
-      // 3. Heartbeat & Breathing
-      this.initPhysiologyAudio();
-
-      // 4. Radio Static for Pale Bride
+      // 3. Radio static for Pale Bride proximity
       this.initStaticBed();
 
       this.isInitialized = true;
     } catch (e) {
-      console.warn('AudioEngine initialization failed or waiting for user gesture:', e);
+      console.warn('AudioEngine waiting for user click to start audio context:', e);
     }
   }
 
@@ -58,99 +52,60 @@ class AudioEngine {
     }
   }
 
-  private initAmbientBed(): void {
+  private initWindBed(): void {
     if (!this.ctx || !this.masterGain) return;
 
-    this.ambientGain = this.ctx.createGain();
-    this.ambientGain.gain.value = 0.35;
-    this.ambientGain.connect(this.masterGain);
+    this.windGain = this.ctx.createGain();
+    this.windGain.gain.value = 0.15;
+    this.windGain.connect(this.masterGain);
 
-    // Deep sub-bass horror drone (detuned 55Hz & 58Hz)
-    const osc1 = this.ctx.createOscillator();
-    const osc2 = this.ctx.createOscillator();
-    osc1.type = 'sawtooth';
-    osc2.type = 'sine';
-    osc1.frequency.value = 52;
-    osc2.frequency.value = 54.5;
-
-    const filter = this.ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.value = 110;
-
-    const droneGain = this.ctx.createGain();
-    droneGain.gain.value = 0.18;
-
-    osc1.connect(filter);
-    osc2.connect(filter);
-    filter.connect(droneGain);
-    droneGain.connect(this.ambientGain);
-
-    osc1.start();
-    osc2.start();
-
-    // Wind noise buffer
-    const bufferSize = this.ctx.sampleRate * 3;
+    // Warm, gentle pink-tinted noise buffer
+    const bufferSize = this.ctx.sampleRate * 4;
     const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-    const output = noiseBuffer.getChannelData(0);
+    const data = noiseBuffer.getChannelData(0);
+
+    let b0 = 0, b1 = 0, b2 = 0;
     for (let i = 0; i < bufferSize; i++) {
-      output[i] = Math.random() * 2 - 1;
+      const white = Math.random() * 2 - 1;
+      b0 = 0.99886 * b0 + white * 0.0555179;
+      b1 = 0.99332 * b1 + white * 0.0750759;
+      b2 = 0.96900 * b2 + white * 0.1538520;
+      data[i] = (b0 + b1 + b2) * 0.12;
     }
 
-    const whiteNoise = this.ctx.createBufferSource();
-    whiteNoise.buffer = noiseBuffer;
-    whiteNoise.loop = true;
+    const noiseSource = this.ctx.createBufferSource();
+    noiseSource.buffer = noiseBuffer;
+    noiseSource.loop = true;
 
-    const windFilter = this.ctx.createBiquadFilter();
-    windFilter.type = 'bandpass';
-    windFilter.frequency.value = 240;
-    windFilter.Q.value = 2.5;
+    // Smooth low-pass filter to eliminate any harsh high frequencies
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 320;
+    filter.Q.value = 1.0;
 
-    const windGain = this.ctx.createGain();
-    windGain.gain.value = 0.08;
-
-    whiteNoise.connect(windFilter);
-    windFilter.connect(windGain);
-    windGain.connect(this.ambientGain);
-
-    whiteNoise.start();
+    noiseSource.connect(filter);
+    filter.connect(this.windGain);
+    noiseSource.start();
   }
 
-  private initCrickets(): void {
+  private initSubDrone(): void {
     if (!this.ctx || !this.masterGain) return;
 
-    this.cricketsGain = this.ctx.createGain();
-    this.cricketsGain.gain.value = 0.15;
-    this.cricketsGain.connect(this.masterGain);
+    this.droneGain = this.ctx.createGain();
+    this.droneGain.gain.value = 0.08;
+    this.droneGain.connect(this.masterGain);
 
-    // High frequency filtered procedural chirps
-    const cricketOsc = this.ctx.createOscillator();
-    cricketOsc.type = 'sine';
-    cricketOsc.frequency.value = 4600;
+    const osc = this.ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = 46; // Warm 46Hz low frequency sub rumble
 
-    const lfo = this.ctx.createOscillator();
-    lfo.type = 'sawtooth';
-    lfo.frequency.value = 12; // Chirp rhythm
+    const lowpass = this.ctx.createBiquadFilter();
+    lowpass.type = 'lowpass';
+    lowpass.frequency.value = 80;
 
-    const lfoGain = this.ctx.createGain();
-    lfoGain.gain.value = 0.06;
-
-    lfo.connect(this.cricketsGain.gain);
-    cricketOsc.connect(this.cricketsGain);
-
-    cricketOsc.start();
-    lfo.start();
-  }
-
-  private initPhysiologyAudio(): void {
-    if (!this.ctx || !this.masterGain) return;
-
-    this.heartbeatGain = this.ctx.createGain();
-    this.heartbeatGain.gain.value = 0;
-    this.heartbeatGain.connect(this.masterGain);
-
-    this.breathingGain = this.ctx.createGain();
-    this.breathingGain.gain.value = 0;
-    this.breathingGain.connect(this.masterGain);
+    osc.connect(lowpass);
+    lowpass.connect(this.droneGain);
+    osc.start();
   }
 
   private initStaticBed(): void {
@@ -160,12 +115,11 @@ class AudioEngine {
     this.staticGain.gain.value = 0;
     this.staticGain.connect(this.masterGain);
 
-    // White noise generator for radio static
     const bufferSize = this.ctx.sampleRate * 2;
     const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
     const data = noiseBuffer.getChannelData(0);
     for (let i = 0; i < bufferSize; i++) {
-      data[i] = Math.random() * 2 - 1;
+      data[i] = (Math.random() * 2 - 1) * 0.15;
     }
 
     const noiseSource = this.ctx.createBufferSource();
@@ -174,8 +128,8 @@ class AudioEngine {
 
     const filter = this.ctx.createBiquadFilter();
     filter.type = 'bandpass';
-    filter.frequency.value = 1800;
-    filter.Q.value = 1.8;
+    filter.frequency.value = 900;
+    filter.Q.value = 1.5;
 
     noiseSource.connect(filter);
     filter.connect(this.staticGain);
@@ -206,33 +160,32 @@ class AudioEngine {
     }
   }
 
-  /** Set crickets silencing factor: 0 when monster is near (dead silence!), 1 when safe. */
+  /** Ducks ambient sound when monster is close (eerie hush). */
   public setSafeWildlifeFactor(factor: number): void {
-    this.targetCricketsVol = clamp(factor, 0, 1) * 0.16;
+    this.targetAmbientVol = 0.04 + clamp(factor, 0, 1) * 0.14;
   }
 
-  /** Update dynamic heartbeat, breathing, static noise, and ambient volume every frame. */
   public update(dt: number, nearestMonsterDist: number): void {
     if (!this.ctx || !this.isInitialized) return;
 
-    // Smooth crickets ducking when monsters approach
-    this.currentCricketsVol += (this.targetCricketsVol - this.currentCricketsVol) * dt * 3;
-    if (this.cricketsGain) {
-      this.cricketsGain.gain.setValueAtTime(Math.max(0.0001, this.currentCricketsVol), this.ctx.currentTime);
+    // Smooth ambient volume
+    this.currentAmbientVol += (this.targetAmbientVol - this.currentAmbientVol) * dt * 2;
+    if (this.windGain) {
+      this.windGain.gain.setValueAtTime(this.currentAmbientVol, this.ctx.currentTime);
     }
 
     const state = useGameStore.getState();
 
-    // Static noise tied to Wraith proximity
+    // Radio static tied to Pale Bride proximity
     if (this.staticGain) {
-      const targetStatic = state.staticNoise * 0.35;
+      const targetStatic = state.staticNoise * 0.22;
       this.staticGain.gain.setValueAtTime(targetStatic, this.ctx.currentTime);
     }
 
-    // Heartbeat logic
+    // Dynamic heartbeat thump when hurt or terrorized
     const bpm = state.heartbeatRate;
     const interval = 60 / bpm;
-    if (this.ctx.currentTime >= this.nextHeartbeatTime && (state.hp < 40 || state.sanity < 45 || nearestMonsterDist < 18)) {
+    if (this.ctx.currentTime >= this.nextHeartbeatTime && (state.hp < 40 || state.sanity < 40 || nearestMonsterDist < 18)) {
       this.playHeartbeatThump();
       this.nextHeartbeatTime = this.ctx.currentTime + interval;
     }
@@ -244,10 +197,10 @@ class AudioEngine {
     const gain = this.ctx.createGain();
 
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(75, this.ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(35, this.ctx.currentTime + 0.14);
+    osc.frequency.setValueAtTime(65, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(32, this.ctx.currentTime + 0.14);
 
-    gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+    gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.16);
 
     osc.connect(gain);
@@ -258,211 +211,141 @@ class AudioEngine {
   }
 
   // -------------------------------------------------------------------------
-  // 3D Spatial SFX
+  // Spatial SFX
   // -------------------------------------------------------------------------
 
-  public playFootstep(pos: THREE.Vector3, surface: 'dirt' | 'wood' | 'stone' | 'water' = 'dirt'): void {
+  public playFootstep(pos: THREE.Vector3, surface: 'dirt' | 'wood' | 'stone' = 'dirt'): void {
     if (!this.ctx || !this.masterGain) return;
-
-    const panner = this.ctx.createPanner();
-    panner.panningModel = 'HRTF';
-    panner.distanceModel = 'inverse';
-    panner.refDistance = 1.5;
-    panner.maxDistance = 35;
-    panner.positionX.setValueAtTime(pos.x, this.ctx.currentTime);
-    panner.positionY.setValueAtTime(pos.y, this.ctx.currentTime);
-    panner.positionZ.setValueAtTime(pos.z, this.ctx.currentTime);
 
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     const filter = this.ctx.createBiquadFilter();
 
-    if (surface === 'wood') {
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(140, this.ctx.currentTime);
-      filter.frequency.value = 500;
-    } else if (surface === 'stone') {
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(220, this.ctx.currentTime);
-      filter.frequency.value = 900;
-    } else {
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(95, this.ctx.currentTime);
-      filter.frequency.value = 350;
-    }
+    osc.type = 'sine';
+    const freq = surface === 'wood' ? 110 : surface === 'stone' ? 140 : 80;
+    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(35, this.ctx.currentTime + 0.06);
 
-    gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.08);
+    filter.type = 'lowpass';
+    filter.frequency.value = 260;
+
+    gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.07);
 
     osc.connect(filter);
     filter.connect(gain);
-    gain.connect(panner);
-    panner.connect(this.masterGain);
+    gain.connect(this.masterGain);
 
     osc.start();
-    osc.stop(this.ctx.currentTime + 0.09);
+    osc.stop(this.ctx.currentTime + 0.08);
   }
 
   public playPistolShot(pos: THREE.Vector3): void {
     if (!this.ctx || !this.masterGain) return;
 
-    const panner = this.ctx.createPanner();
-    panner.positionX.setValueAtTime(pos.x, this.ctx.currentTime);
-    panner.positionY.setValueAtTime(pos.y, this.ctx.currentTime);
-    panner.positionZ.setValueAtTime(pos.z, this.ctx.currentTime);
-
-    // Initial sharp attack crack
     const osc = this.ctx.createOscillator();
-    const oscGain = this.ctx.createGain();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(800, this.ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(80, this.ctx.currentTime + 0.12);
+    const gain = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(420, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(50, this.ctx.currentTime + 0.12);
 
-    oscGain.gain.setValueAtTime(0.9, this.ctx.currentTime);
-    oscGain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.14);
+    gain.gain.setValueAtTime(0.65, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.14);
 
-    osc.connect(oscGain);
-    oscGain.connect(panner);
-
-    // Low rumble boom
-    const sub = this.ctx.createOscillator();
-    const subGain = this.ctx.createGain();
-    sub.type = 'sine';
-    sub.frequency.setValueAtTime(120, this.ctx.currentTime);
-    sub.frequency.exponentialRampToValueAtTime(30, this.ctx.currentTime + 0.28);
-    subGain.gain.setValueAtTime(0.7, this.ctx.currentTime);
-    subGain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.3);
-
-    sub.connect(subGain);
-    subGain.connect(panner);
-
-    panner.connect(this.masterGain);
+    osc.connect(gain);
+    gain.connect(this.masterGain);
 
     osc.start();
-    osc.stop(this.ctx.currentTime + 0.15);
-    sub.start();
-    sub.stop(this.ctx.currentTime + 0.32);
+    osc.stop(this.ctx.currentTime + 0.16);
   }
 
   public playShotgunShot(pos: THREE.Vector3): void {
     if (!this.ctx || !this.masterGain) return;
 
-    const panner = this.ctx.createPanner();
-    panner.positionX.setValueAtTime(pos.x, this.ctx.currentTime);
-    panner.positionY.setValueAtTime(pos.y, this.ctx.currentTime);
-    panner.positionZ.setValueAtTime(pos.z, this.ctx.currentTime);
-
-    const sub = this.ctx.createOscillator();
-    const subGain = this.ctx.createGain();
-    sub.type = 'sawtooth';
-    sub.frequency.setValueAtTime(150, this.ctx.currentTime);
-    sub.frequency.exponentialRampToValueAtTime(25, this.ctx.currentTime + 0.42);
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(120, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(25, this.ctx.currentTime + 0.28);
 
     const filter = this.ctx.createBiquadFilter();
     filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(1200, this.ctx.currentTime);
-    filter.frequency.exponentialRampToValueAtTime(120, this.ctx.currentTime + 0.4);
+    filter.frequency.value = 450;
 
-    subGain.gain.setValueAtTime(1.0, this.ctx.currentTime);
-    subGain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.45);
+    gain.gain.setValueAtTime(0.8, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.32);
 
-    sub.connect(filter);
-    filter.connect(subGain);
-    subGain.connect(panner);
-    panner.connect(this.masterGain);
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.masterGain);
 
-    sub.start();
-    sub.stop(this.ctx.currentTime + 0.46);
+    osc.start();
+    osc.stop(this.ctx.currentTime + 0.35);
   }
 
   public playMonsterGrowl(pos: THREE.Vector3, pitch = 1.0): void {
     if (!this.ctx || !this.masterGain) return;
-
-    const panner = this.ctx.createPanner();
-    panner.panningModel = 'HRTF';
-    panner.distanceModel = 'inverse';
-    panner.refDistance = 3;
-    panner.maxDistance = 65;
-    panner.positionX.setValueAtTime(pos.x, this.ctx.currentTime);
-    panner.positionY.setValueAtTime(pos.y, this.ctx.currentTime);
-    panner.positionZ.setValueAtTime(pos.z, this.ctx.currentTime);
 
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     const filter = this.ctx.createBiquadFilter();
 
     osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(140 * pitch, this.ctx.currentTime);
-    osc.frequency.linearRampToValueAtTime(80 * pitch, this.ctx.currentTime + 0.8);
+    osc.frequency.setValueAtTime(90 * pitch, this.ctx.currentTime);
+    osc.frequency.linearRampToValueAtTime(55 * pitch, this.ctx.currentTime + 0.7);
 
-    filter.type = 'bandpass';
-    filter.frequency.value = 340;
-    filter.Q.value = 3;
+    filter.type = 'lowpass';
+    filter.frequency.value = 240;
 
     gain.gain.setValueAtTime(0.01, this.ctx.currentTime);
-    gain.gain.linearRampToValueAtTime(0.65, this.ctx.currentTime + 0.2);
-    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.95);
+    gain.gain.linearRampToValueAtTime(0.35, this.ctx.currentTime + 0.15);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.75);
 
     osc.connect(filter);
     filter.connect(gain);
-    gain.connect(panner);
-    panner.connect(this.masterGain);
+    gain.connect(this.masterGain);
 
     osc.start();
-    osc.stop(this.ctx.currentTime + 1.0);
+    osc.stop(this.ctx.currentTime + 0.8);
   }
 
   public playBrideWhisper(pos: THREE.Vector3): void {
     if (!this.ctx || !this.masterGain) return;
 
-    const panner = this.ctx.createPanner();
-    panner.panningModel = 'HRTF';
-    panner.positionX.setValueAtTime(pos.x, this.ctx.currentTime);
-    panner.positionY.setValueAtTime(pos.y, this.ctx.currentTime);
-    panner.positionZ.setValueAtTime(pos.z, this.ctx.currentTime);
-
-    // Haunting high whistle/whisper
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(640, this.ctx.currentTime);
-    osc.frequency.linearRampToValueAtTime(580, this.ctx.currentTime + 1.2);
+    osc.frequency.setValueAtTime(380, this.ctx.currentTime);
+    osc.frequency.linearRampToValueAtTime(340, this.ctx.currentTime + 0.8);
 
     gain.gain.setValueAtTime(0.001, this.ctx.currentTime);
-    gain.gain.linearRampToValueAtTime(0.28, this.ctx.currentTime + 0.3);
-    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 1.4);
+    gain.gain.linearRampToValueAtTime(0.16, this.ctx.currentTime + 0.2);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.9);
 
     osc.connect(gain);
-    gain.connect(panner);
-    panner.connect(this.masterGain);
+    gain.connect(this.masterGain);
 
     osc.start();
-    osc.stop(this.ctx.currentTime + 1.45);
+    osc.stop(this.ctx.currentTime + 0.95);
   }
 
   public playWatcherHum(pos: THREE.Vector3): void {
     if (!this.ctx || !this.masterGain) return;
 
-    const panner = this.ctx.createPanner();
-    panner.positionX.setValueAtTime(pos.x, this.ctx.currentTime);
-    panner.positionY.setValueAtTime(pos.y, this.ctx.currentTime);
-    panner.positionZ.setValueAtTime(pos.z, this.ctx.currentTime);
-
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(45, this.ctx.currentTime);
+    osc.frequency.setValueAtTime(42, this.ctx.currentTime);
 
     gain.gain.setValueAtTime(0.01, this.ctx.currentTime);
-    gain.gain.linearRampToValueAtTime(0.7, this.ctx.currentTime + 0.4);
-    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 1.8);
+    gain.gain.linearRampToValueAtTime(0.45, this.ctx.currentTime + 0.3);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 1.2);
 
     osc.connect(gain);
-    gain.connect(panner);
-    panner.connect(this.masterGain);
+    gain.connect(this.masterGain);
 
     osc.start();
-    osc.stop(this.ctx.currentTime + 1.9);
+    osc.stop(this.ctx.currentTime + 1.3);
   }
 
   public playInteract(): void {
@@ -470,10 +353,10 @@ class AudioEngine {
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     osc.type = 'triangle';
-    osc.frequency.setValueAtTime(520, this.ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(320, this.ctx.currentTime + 0.08);
+    osc.frequency.setValueAtTime(420, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(280, this.ctx.currentTime + 0.08);
 
-    gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+    gain.gain.setValueAtTime(0.18, this.ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.09);
 
     osc.connect(gain);
@@ -486,15 +369,15 @@ class AudioEngine {
     if (!this.ctx || !this.masterGain) return;
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(1200, this.ctx.currentTime);
-    gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.04);
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(600, this.ctx.currentTime);
+    gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.03);
 
     osc.connect(gain);
     gain.connect(this.masterGain);
     osc.start();
-    osc.stop(this.ctx.currentTime + 0.05);
+    osc.stop(this.ctx.currentTime + 0.04);
   }
 
   public playReload(): void {
@@ -502,16 +385,16 @@ class AudioEngine {
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     osc.type = 'triangle';
-    osc.frequency.setValueAtTime(320, this.ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(680, this.ctx.currentTime + 0.12);
+    osc.frequency.setValueAtTime(280, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(520, this.ctx.currentTime + 0.1);
 
-    gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.14);
+    gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.12);
 
     osc.connect(gain);
     gain.connect(this.masterGain);
     osc.start();
-    osc.stop(this.ctx.currentTime + 0.15);
+    osc.stop(this.ctx.currentTime + 0.14);
   }
 
   public setMasterVolume(val: number): void {

@@ -44,10 +44,10 @@ function createGroundTexture(size = 512): HTMLCanvasElement {
       const n2 = tileFbm(u, v, 16, 3, 202);
       const pebble = rng.chance(0.015) ? rng.range(0.15, 0.35) : 0;
 
-      // Dark muddy forest earth with damp spots and decayed organic mulch
-      let r = 24 + n1 * 26 + n2 * 12 + pebble * 60;
-      let g = 20 + n1 * 22 + n2 * 10 + pebble * 55;
-      let b = 16 + n1 * 16 + n2 * 8 + pebble * 50;
+      // Rich forest earth with damp mulch and scattered pebbles
+      let r = 78 + n1 * 32 + n2 * 18 + pebble * 70;
+      let g = 68 + n1 * 28 + n2 * 15 + pebble * 65;
+      let b = 55 + n1 * 22 + n2 * 12 + pebble * 55;
 
       const idx = (y * size + x) * 4;
       data[idx] = Math.min(255, Math.floor(r));
@@ -76,9 +76,9 @@ function createBarkTexture(size = 256): HTMLCanvasElement {
       const n2 = tileFbm(u * 16, v * 1, 6, 3, 404);
 
       const val = n1 * 0.7 + n2 * 0.3;
-      const r = 22 + val * 35;
-      const g = 18 + val * 26;
-      const b = 15 + val * 20;
+      const r = 65 + val * 45;
+      const g = 52 + val * 35;
+      const b = 42 + val * 28;
 
       const idx = (y * size + x) * 4;
       data[idx] = Math.min(255, Math.floor(r));
@@ -112,14 +112,14 @@ function createWoodPlanksTexture(size = 512): HTMLCanvasElement {
       const v = y / size;
       const grain = tileFbm(u * 14, v * 2, 6, 3, plankSeed);
 
-      let r = 38 + grain * 28;
-      let g = 32 + grain * 22;
-      let b = 26 + grain * 16;
+      let r = 85 + grain * 38;
+      let g = 70 + grain * 30;
+      let b = 55 + grain * 24;
 
       if (isSeam) {
-        r *= 0.35;
-        g *= 0.35;
-        b *= 0.35;
+        r *= 0.45;
+        g *= 0.45;
+        b *= 0.45;
       }
 
       const idx = (y * size + x) * 4;
@@ -147,9 +147,9 @@ function createStoneTexture(size = 512): HTMLCanvasElement {
       const n1 = tileFbm(u, v, 8, 4, 505);
       const moss = tileFbm(u * 2, v * 2, 4, 3, 606);
 
-      let r = 35 + n1 * 35;
-      let g = 35 + n1 * 35;
-      let b = 37 + n1 * 35;
+      let r = 85 + n1 * 45;
+      let g = 85 + n1 * 45;
+      let b = 90 + n1 * 45;
 
       // Dark mold and moss in crevices
       if (moss > 0.6) {

@@ -1,102 +1,64 @@
 // ============================================================================
-// Weather & Horror Atmosphere: Dense Fog, Drifting Mist, Rain, Lightning Flashes
+// Weather & Horror Atmosphere: Cinematic Fog, Lightning Flashes, Optimized Rain
 // ============================================================================
 
 import * as THREE from 'three';
 import { Rng } from '../core/math';
-import { getTextureAtlas } from '../engine/textures';
 import { soundEngine } from '../audio/audioEngine';
 
 export class WeatherSystem {
   public group = new THREE.Group();
   public lightningLight!: THREE.DirectionalLight;
-  private rainGeo!: THREE.BufferGeometry;
   private rainPoints!: THREE.Points;
-  private rainCount = 2800;
-  private fogParticles!: THREE.InstancedMesh;
-  private fogDummy = new THREE.Object3D();
-  private fogCount = 24;
+  private rainCount = 900; // Optimized count for potato laptops
 
-  private nextLightningTime = 12;
+  private nextLightningTime = 16;
   private isFlashing = false;
   private flashDuration = 0;
 
   public init(scene: THREE.Scene): void {
-    const textures = getTextureAtlas();
     const rng = new Rng(777);
 
-    // 1. Scene Ambient Fog (Dark oppressive cold teal-black)
-    scene.fog = new THREE.FogExp2(0x070b10, 0.026);
+    // 1. Natural Horror Fog: Clear within 25m, atmospheric blue-grey fade to 110m
+    scene.fog = new THREE.Fog(0x182434, 25, 110);
 
     // 2. Lightning Directional Light (normally 0 intensity)
     this.lightningLight = new THREE.DirectionalLight(0xddeeff, 0);
     this.lightningLight.position.set(40, 100, 40);
-    this.lightningLight.castShadow = true;
     scene.add(this.lightningLight);
 
-    // 3. Rain Particle System
+    // 3. Rain Particle System (Optimized GPU instance)
     const rainPositions = new Float32Array(this.rainCount * 3);
     for (let i = 0; i < this.rainCount; i++) {
-      rainPositions[i * 3] = rng.range(-35, 35);
-      rainPositions[i * 3 + 1] = rng.range(0, 30);
-      rainPositions[i * 3 + 2] = rng.range(-35, 35);
+      rainPositions[i * 3] = rng.range(-40, 40);
+      rainPositions[i * 3 + 1] = rng.range(0, 35);
+      rainPositions[i * 3 + 2] = rng.range(-40, 40);
     }
 
-    this.rainGeo = new THREE.BufferGeometry();
-    this.rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPositions, 3));
+    const rainGeo = new THREE.BufferGeometry();
+    rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPositions, 3));
 
     const rainMat = new THREE.PointsMaterial({
-      color: 0x8899aa,
-      size: 0.16,
+      color: 0x99aabb,
+      size: 0.15,
       transparent: true,
-      opacity: 0.55
+      opacity: 0.45
     });
 
-    this.rainPoints = new THREE.Points(this.rainGeo, rainMat);
+    this.rainPoints = new THREE.Points(rainGeo, rainMat);
     this.group.add(this.rainPoints);
-
-    // 4. Volumetric Drifting Ground Fog Puffs
-    const fogPlaneGeo = new THREE.PlaneGeometry(18, 18);
-    const fogMat = new THREE.MeshBasicMaterial({
-      map: textures.fogPuff,
-      transparent: true,
-      opacity: 0.28,
-      depthWrite: false,
-      blending: THREE.NormalBlending
-    });
-
-    this.fogParticles = new THREE.InstancedMesh(fogPlaneGeo, fogMat, this.fogCount);
-    for (let i = 0; i < this.fogCount; i++) {
-      this.fogDummy.position.set(rng.range(-120, 120), rng.range(0, 4), rng.range(-120, 120));
-      this.fogDummy.rotation.set(-Math.PI / 2, 0, rng.range(0, Math.PI * 2));
-      this.fogDummy.scale.setScalar(rng.range(0.8, 1.8));
-      this.fogDummy.updateMatrix();
-      this.fogParticles.setMatrixAt(i, this.fogDummy.matrix);
-    }
-    this.fogParticles.instanceMatrix.needsUpdate = true;
-    this.group.add(this.fogParticles);
   }
 
   public update(dt: number, playerPos: THREE.Vector3, time: number): void {
-    // 1. Follow player with rain box
-    this.rainPoints.position.set(playerPos.x, 0, playerPos.z);
-    const pos = this.rainGeo.attributes.position as THREE.BufferAttribute;
-    const arr = pos.array as Float32Array;
-
-    for (let i = 0; i < this.rainCount; i++) {
-      let y = arr[i * 3 + 1] - dt * 26; // Rain speed
-      if (y < playerPos.y - 2) {
-        y = playerPos.y + 26;
-      }
-      arr[i * 3 + 1] = y;
-    }
-    pos.needsUpdate = true;
+    // 1. Follow player with rain, cycling vertically with zero CPU buffer recreation
+    const rainCycleY = (time * 18) % 35;
+    this.rainPoints.position.set(playerPos.x, playerPos.y - rainCycleY + 18, playerPos.z);
 
     // 2. Lightning flash timer
     this.nextLightningTime -= dt;
     if (this.nextLightningTime <= 0) {
       this.triggerLightning();
-      this.nextLightningTime = 16 + Math.random() * 22;
+      this.nextLightningTime = 20 + Math.random() * 25;
     }
 
     if (this.isFlashing) {
@@ -110,12 +72,12 @@ export class WeatherSystem {
 
   public triggerLightning(): void {
     this.isFlashing = true;
-    this.flashDuration = 0.12;
-    this.lightningLight.intensity = 5.2;
+    this.flashDuration = 0.1;
+    this.lightningLight.intensity = 4.0;
 
-    // Play thunder after brief delay
+    // Distant rolling thunder
     setTimeout(() => {
       soundEngine.playFootstep(new THREE.Vector3(0, 20, 0), 'wood');
-    }, 450);
+    }, 550);
   }
 }

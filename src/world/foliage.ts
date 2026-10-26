@@ -55,6 +55,10 @@ export class FoliageSystem {
       const lakeDist = Math.hypot(x - LAYOUT.lake.x, z - LAYOUT.lake.z);
       if (lakeDist < LAYOUT.lake.radius + 6) continue;
 
+      // Avoid player spawn area
+      const spawnDist = Math.hypot(x - LAYOUT.spawn.x, z - LAYOUT.spawn.z);
+      if (spawnDist < 8) continue;
+
       // Avoid road center
       let onRoad = false;
       for (let r = 0; r < LAYOUT.road.length - 1; r++) {

@@ -37,11 +37,13 @@ export class GameInstance {
     const spawn = LAYOUT.spawn;
     await physics.init(spawn.x, 6, spawn.z);
 
-    // 3. Ambient Lighting
-    const ambientLight = new THREE.AmbientLight(0x0a1420, 0.65);
+    // 3. Atmospheric Horror Moonlight & Sky
+    this.scene.background = new THREE.Color(0x141c26);
+
+    const ambientLight = new THREE.AmbientLight(0x324458, 1.4);
     this.scene.add(ambientLight);
 
-    const moonLight = new THREE.DirectionalLight(0x1a2e45, 0.45);
+    const moonLight = new THREE.DirectionalLight(0x769cc4, 1.6);
     moonLight.position.set(-60, 90, -40);
     this.scene.add(moonLight);
 
@@ -107,7 +109,7 @@ export class GameInstance {
         this.director.handleBulletHit(hitPoint, damage);
       });
 
-      const playerPos = physics.getPlayerPosition();
+      const playerPos = this.player.position;
 
       // 3. Update AI Monsters & Director
       this.director.update(dt, playerPos, this.player.camera);

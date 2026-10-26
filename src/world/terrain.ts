@@ -84,41 +84,40 @@ export function createTerrain(): { mesh: THREE.Mesh; waterMesh: THREE.Mesh } {
     vertices[i * 3 + 1] = y;
     vertices[i * 3 + 2] = z;
 
-    // Splat vertex coloring:
-    // Dark earth base
-    let r = 0.14;
-    let g = 0.12;
-    let b = 0.10;
+    // Splat vertex coloring (Natural, visible earthy tones)
+    let r = 0.82;
+    let g = 0.78;
+    let b = 0.72;
 
-    // Near water: dark mud & silt
+    // Near water: damp shoreline
     if (y < WORLD.waterLevel + 1.2) {
-      r = 0.08;
-      g = 0.08;
-      b = 0.07;
+      r = 0.55;
+      g = 0.52;
+      b = 0.48;
     }
 
-    // High slope / cliffs: grey rock
+    // High slope / cliffs: exposed grey limestone rock
     if (y > 18) {
       const rockFactor = clamp((y - 18) / 20, 0, 1);
-      r = r * (1 - rockFactor) + 0.22 * rockFactor;
-      g = g * (1 - rockFactor) + 0.22 * rockFactor;
-      b = b * (1 - rockFactor) + 0.24 * rockFactor;
+      r = r * (1 - rockFactor) + 0.88 * rockFactor;
+      g = g * (1 - rockFactor) + 0.88 * rockFactor;
+      b = b * (1 - rockFactor) + 0.92 * rockFactor;
     }
 
-    // Road coloration (slightly lighter packed gravel)
+    // Road coloration: clear packed road trail
     for (let s = 0; s < LAYOUT.road.length - 1; s++) {
       const d = distToSegment(x, z, LAYOUT.road[s][0], LAYOUT.road[s][1], LAYOUT.road[s + 1][0], LAYOUT.road[s + 1][1]);
-      if (d < 4.0) {
-        const rf = 1.0 - d / 4.0;
-        r += 0.06 * rf;
-        g += 0.05 * rf;
-        b += 0.04 * rf;
+      if (d < 4.5) {
+        const rf = 1.0 - d / 4.5;
+        r += 0.15 * rf;
+        g += 0.12 * rf;
+        b += 0.08 * rf;
       }
     }
 
-    colors[i * 3] = r;
-    colors[i * 3 + 1] = g;
-    colors[i * 3 + 2] = b;
+    colors[i * 3] = Math.min(1.0, r);
+    colors[i * 3 + 1] = Math.min(1.0, g);
+    colors[i * 3 + 2] = Math.min(1.0, b);
   }
 
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
