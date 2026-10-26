@@ -46,6 +46,15 @@ class InputManager {
   public init(domElement: HTMLElement): void {
     this.domElement = domElement;
 
+    // Immediately re-engage pointer lock when clicking game canvas
+    this.domElement.addEventListener('click', () => {
+      const store = useGameStore.getState();
+      if (store.status === 'playing' && !this.state.pointerLocked) {
+        this.requestPointerLock();
+      }
+    });
+
+    window.addEventListener('blur', this.handleBlur);
     window.addEventListener('keydown', this.handleKeyDown);
     window.addEventListener('keyup', this.handleKeyUp);
     window.addEventListener('mousemove', this.handleMouseMove);
@@ -55,6 +64,16 @@ class InputManager {
 
     document.addEventListener('pointerlockchange', this.handleLockChange);
   }
+
+  private handleBlur = (): void => {
+    this.state.forward = false;
+    this.state.backward = false;
+    this.state.left = false;
+    this.state.right = false;
+    this.state.sprint = false;
+    this.state.fire = false;
+    this.state.aim = false;
+  };
 
   public setCallbacks(callbacks: { onInteract?: () => void; onFire?: () => void; onReload?: () => void }): void {
     this.onInteractCallback = callbacks.onInteract;
@@ -192,7 +211,13 @@ class InputManager {
   };
 
   private handleMouseDown = (e: MouseEvent): void => {
-    if (!this.state.pointerLocked) return;
+    if (!this.state.pointerLocked) {
+      const store = useGameStore.getState();
+      if (store.status === 'playing') {
+        this.requestPointerLock();
+      }
+      return;
+    }
     if (e.button === 0) {
       this.state.fire = true;
       if (this.onFireCallback) this.onFireCallback();

@@ -8,7 +8,8 @@ import { input } from '../engine/input';
 import { soundEngine } from '../audio/audioEngine';
 
 export const TitleScreen: React.FC = () => {
-  const { status, setStatus } = useGameStore();
+  const status = useGameStore((s) => s.status);
+  const setStatus = useGameStore((s) => s.setStatus);
   if (status !== 'title') return null;
 
   const handleStart = () => {
@@ -45,7 +46,12 @@ export const TitleScreen: React.FC = () => {
 };
 
 export const GameOverScreen: React.FC = () => {
-  const { status, deathMessage, resetGame } = useGameStore();
+  const status = useGameStore((s) => s.status);
+  const deathMessage = useGameStore((s) => s.deathMessage);
+  const kills = useGameStore((s) => s.kills);
+  const survivalTime = useGameStore((s) => s.survivalTime);
+  const resetGame = useGameStore((s) => s.resetGame);
+
   if (status !== 'gameover') return null;
 
   const handleRetry = () => {
@@ -53,11 +59,18 @@ export const GameOverScreen: React.FC = () => {
     input.requestPointerLock();
   };
 
+  const m = Math.floor(survivalTime / 60);
+  const s = Math.floor(survivalTime % 60);
+  const timeStr = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+
   return (
     <div className="gameover-backdrop">
       <div className="gameover-card">
         <h1 className="gameover-title">YOU DIED</h1>
         <p className="gameover-reason">{deathMessage}</p>
+        <div className="endgame-stats">
+          KILLS: <strong>{kills}</strong> &nbsp;|&nbsp; TIME SURVIVED: <strong>{timeStr}</strong>
+        </div>
         <p className="gameover-sub">Argon Hollow claimed another victim in the dark.</p>
         <button className="retry-btn" onClick={handleRetry}>
           TRY AGAIN
@@ -68,8 +81,16 @@ export const GameOverScreen: React.FC = () => {
 };
 
 export const VictoryScreen: React.FC = () => {
-  const { status, resetGame } = useGameStore();
+  const status = useGameStore((s) => s.status);
+  const kills = useGameStore((s) => s.kills);
+  const survivalTime = useGameStore((s) => s.survivalTime);
+  const resetGame = useGameStore((s) => s.resetGame);
+
   if (status !== 'victory') return null;
+
+  const m = Math.floor(survivalTime / 60);
+  const s = Math.floor(survivalTime % 60);
+  const timeStr = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 
   return (
     <div className="victory-backdrop">
@@ -79,6 +100,9 @@ export const VictoryScreen: React.FC = () => {
           The emergency radio broadcast overrode the quarantine lock. The heavy steel blast gates groaned open just long
           enough for you to stumble through into the morning light.
         </p>
+        <div className="endgame-stats">
+          KILLS: <strong>{kills}</strong> &nbsp;|&nbsp; ESCAPE TIME: <strong>{timeStr}</strong>
+        </div>
         <p className="victory-sub">The valley behind you lies silent again... waiting for the next trespasser.</p>
         <button className="primary-btn" onClick={resetGame}>
           PLAY AGAIN

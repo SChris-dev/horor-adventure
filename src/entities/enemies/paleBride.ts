@@ -91,12 +91,6 @@ export class PaleBride extends EnemyBase {
     const state = useGameStore.getState();
     const flashlightHitting = state.flashlightOn && dist < 45;
 
-    // Update static noise in player's radio based on proximity
-    if (dist < 32) {
-      const staticVal = (32 - dist) / 32;
-      useGameStore.setState({ staticNoise: Math.max(state.staticNoise, staticVal) });
-    }
-
     // Play haunting whisper periodically
     this.whisperTimer -= dt;
     if (this.whisperTimer <= 0 && dist < 28) {

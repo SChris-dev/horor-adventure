@@ -62,13 +62,12 @@ export class AIDirector {
 
   public update(dt: number, playerPos: THREE.Vector3, camera: THREE.Camera): void {
     let closest = 999;
-
-    // Reset static noise to 0, enemies will raise it if near
-    useGameStore.setState({ staticNoise: 0 });
+    let maxStatic = 0;
 
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const enemy = this.enemies[i];
       if (enemy.isDead) {
+        useGameStore.getState().incrementKills();
         this.group.remove(enemy.mesh);
         this.enemies.splice(i, 1);
         continue;
@@ -77,9 +76,14 @@ export class AIDirector {
       enemy.update(dt, playerPos, camera);
       const d = enemy.position.distanceTo(playerPos);
       if (d < closest) closest = d;
+
+      if (enemy instanceof PaleBride && d < 32) {
+        maxStatic = Math.max(maxStatic, (32 - d) / 32);
+      }
     }
 
     this.nearestDist = closest;
+    soundEngine.setStaticNoise(maxStatic);
 
     // Duck crickets when monster is near: dead silence when within 25m!
     const wildlifeFactor = closest < 25 ? 0.0 : (closest - 25) / 30;
@@ -107,6 +111,37 @@ export class AIDirector {
         }
       }
     }
+  }
+
+  /** Direct raycast against alive enemies along bullet vector. */
+  public checkBulletRay(origin: THREE.Vector3, direction: THREE.Vector3, maxRange: number, damage: number): { hit: boolean; point: THREE.Vector3 } | null {
+    let closestEnemy: EnemyBase | null = null;
+    let closestDist = maxRange;
+    const hitPoint = new THREE.Vector3();
+    const ray = new THREE.Ray(origin, direction.clone().normalize());
+    const tempPoint = new THREE.Vector3();
+
+    for (const enemy of this.enemies) {
+      if (enemy.isDead) continue;
+      const center = enemy.position.clone();
+      center.y += 1.1; // Center of mass
+      const sphere = new THREE.Sphere(center, 0.85);
+
+      if (ray.intersectSphere(sphere, tempPoint)) {
+        const d = origin.distanceTo(tempPoint);
+        if (d < closestDist) {
+          closestDist = d;
+          closestEnemy = enemy;
+          hitPoint.copy(tempPoint);
+        }
+      }
+    }
+
+    if (closestEnemy) {
+      closestEnemy.takeDamage(damage);
+      return { hit: true, point: hitPoint };
+    }
+    return null;
   }
 
   /** Hitscan check from bullet raycast against enemy colliders. */

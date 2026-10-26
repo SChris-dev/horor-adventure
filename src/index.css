@@ -52,6 +52,25 @@ body, html, #root {
   display: block;
 }
 
+/* Atmospheric Overlays */
+#grain-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0.08;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+#vignette-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  background: radial-gradient(circle at center, rgba(0,0,0,0) 45%, rgba(4,6,9,0.82) 100%);
+}
+
 /* ----------------------------------------------------------------------------
    HUD STYLES
    ---------------------------------------------------------------------------- */
@@ -111,6 +130,55 @@ body, html, #root {
 .text-green { color: var(--color-green); font-weight: bold; }
 .text-amber { color: var(--color-amber); font-weight: bold; }
 
+/* Top Right Stats Panel (Kills & Survival Time from legacy/index.html) */
+.stats-panel {
+  position: absolute;
+  top: 28px;
+  right: 32px;
+  background: var(--color-panel);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--color-panel-border);
+  padding: 12px 18px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 2px;
+  color: #b8b6ac;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+}
+
+.stats-val {
+  color: #fff;
+  font-weight: bold;
+}
+
+/* Floating HUD Notification Banner */
+.hud-banner {
+  position: absolute;
+  bottom: 125px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: #f1c40f;
+  background: rgba(10, 14, 18, 0.92);
+  border: 1px solid rgba(241, 196, 15, 0.5);
+  padding: 10px 24px;
+  border-radius: 4px;
+  text-shadow: 0 0 10px rgba(241, 196, 15, 0.6);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+  animation: bannerFade 0.22s ease-out;
+  z-index: 10;
+}
+
+@keyframes bannerFade {
+  0% { opacity: 0; transform: translate(-50%, 10px); }
+  100% { opacity: 1; transform: translate(-50%, 0); }
+}
+
 /* Crosshair & Interaction */
 .crosshair-wrapper {
   position: absolute;
@@ -125,10 +193,28 @@ body, html, #root {
 .crosshair-dot {
   width: 4px;
   height: 4px;
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(220, 215, 195, 0.85);
   border-radius: 50%;
   box-shadow: 0 0 4px rgba(255, 255, 255, 0.8);
 }
+
+.crosshair-ticks {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+}
+
+.ch-tick {
+  position: absolute;
+  background: rgba(220, 215, 195, 0.72);
+}
+
+.ch-top { width: 2px; height: 6px; top: -10px; left: -1px; }
+.ch-bottom { width: 2px; height: 6px; top: 4px; left: -1px; }
+.ch-left { width: 6px; height: 2px; left: -10px; top: -1px; }
+.ch-right { width: 6px; height: 2px; left: 4px; top: -1px; }
 
 .hitmarker {
   position: absolute;
@@ -661,6 +747,22 @@ body, html, #root {
   font-size: 18px;
   color: #ecf0f1;
   margin-bottom: 8px;
+}
+
+.endgame-stats {
+  margin: 16px 0 20px 0;
+  padding: 10px 16px;
+  background: rgba(0, 0, 0, 0.45);
+  border-top: 1px solid rgba(192, 57, 43, 0.4);
+  border-bottom: 1px solid rgba(192, 57, 43, 0.4);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  letter-spacing: 2px;
+  color: #d6c8b8;
+}
+
+.endgame-stats strong {
+  color: #fff;
 }
 
 .gameover-sub {

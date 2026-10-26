@@ -56,6 +56,11 @@ export interface GameState {
   currentObjective: string;
   objectiveHint: string;
 
+  // Stats from legacy/index.html
+  kills: number;
+  survivalTime: number;
+  hudBanner: string | null;
+
   // Lore / Notes popup
   activeNote: NoteItem | null;
 
@@ -86,6 +91,8 @@ export interface GameState {
   setAmmo: (updates: Partial<{ pistolMag: number; pistolReserve: number; shotgunMag: number; shotgunReserve: number }>) => void;
   setReloading: (reloading: boolean) => void;
   triggerHitMarker: () => void;
+  showHudBanner: (msg: string) => void;
+  incrementKills: () => void;
   setObjective: (title: string, hint?: string) => void;
   readNote: (note: NoteItem | null) => void;
   collectFuse: () => void;
@@ -129,6 +136,10 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   currentObjective: 'Investigate Argon Hollow and find a way out',
   objectiveHint: 'Follow the overgrown road north toward the quarantined gate',
+
+  kills: 0,
+  survivalTime: 0,
+  hudBanner: null,
 
   activeNote: null,
 
@@ -197,6 +208,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         battery: Math.min(100, s.battery + 60),
         flashlightOn: true
       });
+      get().showHudBanner('+60% FLASHLIGHT BATTERY');
       return true;
     }
     return false;
@@ -209,6 +221,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         medkits: s.medkits - 1,
         hp: Math.min(s.maxHp, s.hp + 45)
       });
+      get().showHudBanner('+45 HEALTH RESTORED');
       return true;
     }
     return false;
@@ -217,14 +230,36 @@ export const useGameStore = create<GameState>((set, get) => ({
   switchWeapon: (weapon) => {
     if (!get().isReloading) {
       set({ currentWeapon: weapon });
+      get().showHudBanner(weapon === 'pistol' ? 'EQUIPPED M1911 PISTOL' : 'EQUIPPED DOUBLE-BARREL SHOTGUN');
     }
   },
 
   setAmmo: (updates) => set(updates),
 
-  setReloading: (isReloading) => set({ isReloading }),
+  setReloading: (isReloading) => {
+    set({ isReloading });
+    if (isReloading) {
+      get().showHudBanner('RELOADING...');
+    }
+  },
 
-  triggerHitMarker: () => set({ hitMarkerTimer: 0.18 }),
+  triggerHitMarker: () => {
+    set({ hitMarkerTimer: 0.18 });
+    setTimeout(() => {
+      set({ hitMarkerTimer: 0 });
+    }, 180);
+  },
+
+  showHudBanner: (msg: string) => {
+    set({ hudBanner: msg });
+    setTimeout(() => {
+      if (get().hudBanner === msg) {
+        set({ hudBanner: null });
+      }
+    }, 2400);
+  },
+
+  incrementKills: () => set((s) => ({ kills: s.kills + 1 })),
 
   setObjective: (currentObjective, objectiveHint = '') =>
     set({ currentObjective, objectiveHint }),
@@ -234,6 +269,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   collectFuse: () => {
     const count = get().fusesCollected + 1;
     set({ fusesCollected: count });
+    get().showHudBanner(`+1 HIGH-VOLTAGE FUSE (${count}/3)`);
     if (count >= 3) {
       set({
         currentObjective: 'Restore power to the Radio Tower generator',
@@ -276,6 +312,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       fusesCollected: 0,
       medkits: 1,
       batteries: 2,
+      kills: 0,
+      survivalTime: 0,
+      hudBanner: null,
       currentObjective: 'Investigate Argon Hollow and find a way out',
       objectiveHint: 'Follow the overgrown road north toward the quarantined gate',
       activeNote: null,

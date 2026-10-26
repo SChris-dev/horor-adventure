@@ -22,9 +22,19 @@ export interface InteractableItem {
   data?: unknown;
 }
 
+export interface FloatingPickup {
+  id: string;
+  type: 'ammo' | 'medkit' | 'battery';
+  mesh: THREE.Mesh;
+  basePos: THREE.Vector3;
+  phase: number;
+  collected: boolean;
+}
+
 export class LandmarksSystem {
   public group = new THREE.Group();
   public interactables: InteractableItem[] = [];
+  public pickups: FloatingPickup[] = [];
 
   public init(): void {
     const textures = getTextureAtlas();
@@ -46,6 +56,9 @@ export class LandmarksSystem {
 
     // 6. Police Cruiser Wreck
     this.buildPoliceWreck(textures);
+
+    // 7. Rotating Floating Pickups (Ammo & Medkits from legacy/index.html)
+    this.spawnFloatingPickups();
   }
 
   private buildCabin(textures: ReturnType<typeof getTextureAtlas>): void {
@@ -518,6 +531,116 @@ The Gate to the north is locked under sector quarantine. Only the emergency broa
           );
         }
         break;
+    }
+  }
+
+  private spawnFloatingPickups(): void {
+    const ammoMat = new THREE.MeshStandardMaterial({
+      color: 0x3b6e38,
+      emissive: 0x226618,
+      emissiveIntensity: 0.85,
+      roughness: 0.35,
+      metalness: 0.65
+    });
+    const medkitMat = new THREE.MeshStandardMaterial({
+      color: 0xd8d8d8,
+      emissive: 0x8a1c1c,
+      emissiveIntensity: 0.75,
+      roughness: 0.3,
+      metalness: 0.2
+    });
+    const batteryMat = new THREE.MeshStandardMaterial({
+      color: 0xd4ac0d,
+      emissive: 0x9a7d0a,
+      emissiveIntensity: 0.85,
+      roughness: 0.35,
+      metalness: 0.5
+    });
+
+    const ammoGeo = new THREE.BoxGeometry(0.46, 0.28, 0.26);
+    const medGeo = new THREE.BoxGeometry(0.44, 0.32, 0.44);
+    const batGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.32, 8);
+
+    const locations: { x: number; z: number; type: 'ammo' | 'medkit' | 'battery' }[] = [
+      // Cabin area
+      { x: LAYOUT.cabins[0].x - 3.5, z: LAYOUT.cabins[0].z + 3.5, type: 'ammo' },
+      { x: LAYOUT.cabins[0].x + 4.5, z: LAYOUT.cabins[0].z - 2.5, type: 'medkit' },
+      // Chapel
+      { x: LAYOUT.chapel.x - 4, z: LAYOUT.chapel.z - 8, type: 'ammo' },
+      { x: LAYOUT.chapel.x + 5, z: LAYOUT.chapel.z + 4, type: 'battery' },
+      // Graveyard
+      { x: LAYOUT.graveyard.x + 8, z: LAYOUT.graveyard.z - 6, type: 'ammo' },
+      { x: LAYOUT.graveyard.x - 7, z: LAYOUT.graveyard.z + 5, type: 'medkit' },
+      // Lake Dock
+      { x: LAYOUT.lake.x - 28, z: LAYOUT.lake.z - 12, type: 'ammo' },
+      { x: LAYOUT.lake.x - 14, z: LAYOUT.lake.z - 24, type: 'battery' },
+      // Radio Tower
+      { x: LAYOUT.radioTower.x - 6, z: LAYOUT.radioTower.z + 4, type: 'ammo' },
+      { x: LAYOUT.radioTower.x + 5, z: LAYOUT.radioTower.z - 5, type: 'medkit' },
+      // Police Wreck
+      { x: LAYOUT.wreck.x + 4, z: LAYOUT.wreck.z + 3, type: 'ammo' },
+      { x: LAYOUT.wreck.x - 4, z: LAYOUT.wreck.z - 3, type: 'battery' },
+      // Near Spawn Road
+      { x: LAYOUT.spawn.x + 6, z: LAYOUT.spawn.z - 12, type: 'ammo' },
+      { x: LAYOUT.spawn.x - 8, z: LAYOUT.spawn.z - 8, type: 'medkit' }
+    ];
+
+    locations.forEach((loc, idx) => {
+      const y = getTerrainHeight(loc.x, loc.z) + 0.65;
+      let geo: THREE.BufferGeometry = ammoGeo;
+      let mat: THREE.Material = ammoMat;
+
+      if (loc.type === 'medkit') {
+        geo = medGeo;
+        mat = medkitMat;
+      } else if (loc.type === 'battery') {
+        geo = batGeo;
+        mat = batteryMat;
+      }
+
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(loc.x, y, loc.z);
+      mesh.castShadow = true;
+      this.group.add(mesh);
+
+      this.pickups.push({
+        id: `pickup_${idx}`,
+        type: loc.type,
+        mesh,
+        basePos: new THREE.Vector3(loc.x, y, loc.z),
+        phase: idx * 1.3,
+        collected: false
+      });
+    });
+  }
+
+  public updatePickups(elapsed: number, playerPos: THREE.Vector3): void {
+    const store = useGameStore.getState();
+
+    for (let i = 0; i < this.pickups.length; i++) {
+      const pk = this.pickups[i];
+      if (pk.collected) continue;
+
+      pk.mesh.position.y = pk.basePos.y + Math.sin(elapsed * 2.8 + pk.phase) * 0.08;
+      pk.mesh.rotation.y = elapsed * 1.4 + pk.phase;
+
+      const dist = playerPos.distanceTo(pk.basePos);
+      if (dist < 1.6) {
+        pk.collected = true;
+        pk.mesh.visible = false;
+        soundEngine.playPickup();
+
+        if (pk.type === 'ammo') {
+          store.setAmmo({ pistolReserve: store.pistolReserve + 10, shotgunReserve: store.shotgunReserve + 4 });
+          store.showHudBanner('+10 PISTOL & +4 SHOTGUN AMMO');
+        } else if (pk.type === 'medkit') {
+          store.heal(30);
+          store.showHudBanner('+30 HEALTH RESTORED');
+        } else if (pk.type === 'battery') {
+          store.useBatteryItem();
+          store.showHudBanner('+60% FLASHLIGHT BATTERY');
+        }
+      }
     }
   }
 }

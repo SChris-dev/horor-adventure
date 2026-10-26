@@ -66,9 +66,9 @@ export class Watcher extends EnemyBase {
     // If player looks directly into the Watcher's eyes
     if (isLookingDirectly && dist < 55) {
       this.gazeTimer += dt;
-      const state = useGameStore.getState();
-      state.drainSanity(dt * 16);
-      useGameStore.setState({ sanityGlitch: Math.min(1.0, state.sanityGlitch + dt * 0.4) });
+      if (this.gazeTimer > 0.2) {
+        useGameStore.getState().drainSanity(2);
+      }
 
       this.humTimer -= dt;
       if (this.humTimer <= 0) {

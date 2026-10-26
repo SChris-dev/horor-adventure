@@ -6,7 +6,8 @@ import React from 'react';
 import { useGameStore } from '../state/store';
 
 export const NoteModal: React.FC = () => {
-  const { activeNote, readNote } = useGameStore();
+  const activeNote = useGameStore((s) => s.activeNote);
+  const readNote = useGameStore((s) => s.readNote);
   if (!activeNote) return null;
 
   return (

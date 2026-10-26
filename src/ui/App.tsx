@@ -13,7 +13,7 @@ import { TitleScreen, GameOverScreen, VictoryScreen } from './Screens';
 
 export const App: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const { status } = useGameStore();
+  const status = useGameStore((s) => s.status);
 
   useEffect(() => {
     if (canvasRef.current) {
@@ -28,6 +28,10 @@ export const App: React.FC = () => {
     <div className="app-root">
       {/* Three.js 3D Viewport */}
       <canvas ref={canvasRef} className="game-canvas" />
+
+      {/* Atmospheric Hardware-Accelerated Overlays */}
+      <div id="grain-overlay" />
+      <div id="vignette-overlay" />
 
       {/* Diegetic In-Game HUD */}
       {status === 'playing' && <HUD />}

@@ -104,9 +104,9 @@ export class GameInstance {
       // 1. Step Physics
       physics.step(dt);
 
-      // 2. Update Player & Weapons
-      this.player.update(dt, (hitPoint, damage) => {
-        this.director.handleBulletHit(hitPoint, damage);
+      // 2. Update Player & Weapons with direct raycast monster hit test
+      this.player.update(dt, (origin, dir, range, damage) => {
+        return this.director.checkBulletRay(origin, dir, range, damage);
       });
 
       const playerPos = this.player.position;
@@ -117,11 +117,17 @@ export class GameInstance {
       // 4. Update Weather & Atmospheric Particles
       this.weather.update(dt, playerPos, time / 1000);
 
-      // 5. Check Nearby Interactables
+      // 5. Check Nearby Interactables and Floating Pickups
       this.currentNearbyItem = this.landmarks.checkNearby(playerPos);
+      this.landmarks.updatePickups(time / 1000, playerPos);
+
+      // 6. Survival timer tick (1Hz throttle, zero React VDOM overhead)
+      if (Math.floor(time / 1000) !== Math.floor(this.lastTime / 1000)) {
+        useGameStore.setState((s) => ({ survivalTime: s.survivalTime + 1 }));
+      }
     }
 
-    // 6. Render Post-Processing
+    // 7. Render Direct to Canvas
     gameRenderer.render(this.scene, this.player.camera, time / 1000, dt);
 
     requestAnimationFrame(this.loop);

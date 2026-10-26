@@ -10,17 +10,15 @@ import { input } from '../engine/input';
 import { soundEngine } from '../audio/audioEngine';
 
 export const MenuModal: React.FC = () => {
-  const {
-    status,
-    setStatus,
-    quality,
-    setQuality,
-    mouseSensitivity,
-    setSensitivity,
-    masterVolume,
-    setMasterVolume,
-    resetGame
-  } = useGameStore();
+  const status = useGameStore((s) => s.status);
+  const setStatus = useGameStore((s) => s.setStatus);
+  const quality = useGameStore((s) => s.quality);
+  const setQuality = useGameStore((s) => s.setQuality);
+  const mouseSensitivity = useGameStore((s) => s.mouseSensitivity);
+  const setSensitivity = useGameStore((s) => s.setSensitivity);
+  const masterVolume = useGameStore((s) => s.masterVolume);
+  const setMasterVolume = useGameStore((s) => s.setMasterVolume);
+  const resetGame = useGameStore((s) => s.resetGame);
 
   if (status !== 'paused') return null;
 
